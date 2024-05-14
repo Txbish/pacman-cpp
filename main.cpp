@@ -29,7 +29,6 @@ const int TILE_SIZE = 20; // Size of each tile in pixels
 char maze_Char[MAZE_HEIGHT][MAZE_WIDTH];
 int maze[MAZE_HEIGHT][MAZE_WIDTH];
 bool palletBool = false;
-sf::Texture PacmanTextures[4]; // Array for different directions
 sf::Texture dot;
 sf::Texture ghost_Texture;
 int direction = 0;
@@ -228,7 +227,7 @@ void drawMaze(sf::RenderWindow &window)
                 // Set position and color for glow rectangle
                 glow.setPosition(j * TILE_SIZE - 5, i * TILE_SIZE - 5);
                 glow.setFillColor(sf::Color(0, 0, 255, 50)); // Blue color with some transparency
-                window.draw(glow); // Draw the glow rectangle first
+                window.draw(glow);                           // Draw the glow rectangle first
                 // Set position and color for original wall rectangle
                 wall.setFillColor(sf::Color::Blue);
                 wall.setPosition(j * TILE_SIZE, (i * TILE_SIZE));
@@ -335,7 +334,7 @@ void *ghostMovement(void *arg)
             bool left = false, right = false, up = false, down = false;
             int newY = ghost->ypos;
             int newX = ghost->xpos;
- pthread_mutex_lock(mutex);
+            pthread_mutex_lock(mutex);
             if (maze_Char[newY / TILE_SIZE][(newX - TILE_SIZE) / TILE_SIZE] != 'X')
             {
                 left = true;
@@ -344,7 +343,7 @@ void *ghostMovement(void *arg)
             {
                 right = true;
             }
-            if (maze_Char[(newY + TILE_SIZE) / TILE_SIZE][newX / TILE_SIZE] != 'X')
+            if (maze_Char[(newY + TILE_SIZE) / TILE_SIZE][newX / TILE_SIZE] != 'X'&&maze_Char[(newY + TILE_SIZE) / TILE_SIZE][newX / TILE_SIZE] != '=')
             {
                 down = true;
             }
@@ -352,7 +351,7 @@ void *ghostMovement(void *arg)
             {
                 up = true;
             }
- pthread_mutex_unlock(mutex);
+            //pthread_mutex_unlock(mutex);
             bool exit = true;
             while (exit)
             {
@@ -406,7 +405,7 @@ void *ghostMovement(void *arg)
                     }
                 }
             }
-
+            pthread_mutex_unlock(mutex);
             /* ghost->chdirection();
 
              // Move ghost
@@ -442,7 +441,7 @@ void *ghostMovement(void *arg)
 
             // Sleep to control ghost movement speed
         } // Adjust the sleep duration as needed
-        sf::sleep(sf::milliseconds(100));
+        sf::sleep(sf::milliseconds(150));
     }
 }
 
