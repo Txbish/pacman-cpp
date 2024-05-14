@@ -9,6 +9,9 @@
 #include <time.h>
 #include <chrono>
 
+//Testing
+//Rafay did this
+
 using namespace std;
 int score = 0;
 pthread_mutex_t mazeMutex;
