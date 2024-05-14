@@ -88,7 +88,6 @@ struct Entity
     sf::Sprite sprite;
     float velocity;
     int direction = 0;
-    bool reset=0;
     pthread_mutex_t ghostThread;
 
     void chdirection()
@@ -362,11 +361,6 @@ void *ghostMovement(void *arg)
             }
             else
             {
-                if(ghost->reset)
-                {
-                    !exitHome;
-                    !ghost->reset;
-                }
                 returnKey();
                 returnPermit();
                 bool left = false, right = false, up = false, down = false;
@@ -442,14 +436,26 @@ void *ghostMovement(void *arg)
                         }
                     }
                 }
+                if (ghost->xpos == pacman.xpos && ghost->ypos == pacman.ypos)
+                {
+                    if (pPalletGlobalBool)
+                    {
+                        ghost->xpos = 13 * TILE_SIZE;
+                        ghost->ypos = 17 * TILE_SIZE;
+                        !exitHome;
+                    }
+                    else
+                    {
+                        pacman.resetPacman();
+                    }
+                }
                 pthread_mutex_unlock(mutex);
                 ghost->sprite.setPosition(ghost->xpos, ghost->ypos);
 
                 // Sleep to control ghost movement speed
             } // Adjust the sleep duration as needed
         }
-                    sf::sleep(sf::milliseconds(150));
-
+        sf::sleep(sf::milliseconds(100));
     }
 }
 
@@ -554,25 +560,14 @@ void *game_Engine(void *args)
         sf::Time deltaTime = now - lastUpdateTime;
         lastUpdateTime = now;
         float dt = deltaTime.asSeconds();
+                pacman.move(dt);
+                        pacman.p.setPosition(pacman.xpos, pacman.ypos);
+
         //////////////////////////////////////////////
         sf::Time pnow = clock.getElapsedTime();
         sf::Time pdeltaTime = pnow - plastUpdateTime;
         float pdt = pdeltaTime.asSeconds();
         /////////////////////////////////////////////
-
-        for (int i = 0; i < 4; ++i)
-        {
-            if (collisionWithGhost(pacman, ghosts[i]) )
-            {    if(pPalletGlobalBool==0)
-                pacman.resetPacman();
-                else
-                {
-                    ghosts[i].reset=1;
-                    ghosts[i].xpos=13*TILE_SIZE;
-                    ghosts[i].ypos=17*TILE_SIZE;
-                } // Reset Pac-Man if collision occurs
-            }
-        }
         sf::Event event;
         while (window.pollEvent(event))
         {
@@ -602,7 +597,6 @@ void *game_Engine(void *args)
         }
         int newY = pacman.ypos;
         int newX = pacman.xpos;
-        pacman.move(dt);
         pthread_mutex_lock(&mutex1);
         if (maze_Char[newY / TILE_SIZE][newX / TILE_SIZE] == '.')
         {
@@ -641,7 +635,6 @@ void *game_Engine(void *args)
         scoreText.setString(scoreString);
         window.clear();
         drawMaze(window);
-        pacman.p.setPosition(pacman.xpos, pacman.ypos);
         for (int i = 0; i < 4; ++i)
         {
             ghosts[i].sprite.setPosition(ghosts[i].xpos, ghosts[i].ypos);
