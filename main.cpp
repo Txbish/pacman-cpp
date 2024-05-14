@@ -19,6 +19,7 @@ pthread_mutex_t mazeMutex;
 pthread_mutex_t mutex1;
 pthread_mutex_t ghostMutexes[4];
 pthread_mutex_t PowerPalletMutex;
+pthread_mutex_t ghostGlobalMutex;
 bool pPalletGlobalBool;
 bool uiThreadFinished = false;
 pthread_t ui;
@@ -39,10 +40,14 @@ vector<sf::FloatRect> wallBounds;
 pthread_mutex_t permitMutex;
 pthread_cond_t permitCV = PTHREAD_COND_INITIALIZER; // Initialize permit condition variable
 pthread_cond_t keyCV = PTHREAD_COND_INITIALIZER;
+bool hasSpeed[2];
+sf::Texture speedPallet;
+
 
 ////SEMALHORE/////////////////////
 sem_t keySemaphore;
 sem_t permitSemaphore;
+int prevSpeeds[4] = { 0 };
 ///////////////
 struct permits
 {
@@ -86,9 +91,9 @@ struct Entity
     int xpos;
     int ypos;
     sf::Sprite sprite;
-    float velocity;
+    int velocity;
     int direction = 0;
-    bool reset = 0;
+    bool reset=0;
     pthread_mutex_t ghostThread;
 
     void chdirection()
@@ -139,6 +144,8 @@ struct Pacman
         {
             int newX = xpos;
             int newY = ypos;
+            // if ((xpos < 560 && xpos > 0 && ypos < 700 && ypos > 0))
+            //{
 
             if (direction == 0)
                 newX += TILE_SIZE;
@@ -162,10 +169,11 @@ struct Pacman
             {
                 xpos = 0;
             }
+            //}
             moveclock.restart();
         }
     }
-     void animation()
+    void animation()
     {
         if (direction == 4)
         {
@@ -217,8 +225,7 @@ struct Pacman
         direction = newDirection;
     }
 };
-Pacman pacman;
-void loadMaze()
+Pacman pacman;void loadMaze()
 {
     ifstream file("maze.txt");
 
@@ -242,6 +249,22 @@ void loadMaze()
     }
     ++rows;
     file.close();
+
+    // Randomly spawn two speed pellets
+    int speedPelletsSpawned = 0;
+    srand(time(nullptr)); // Seed the random number generator
+
+    while (speedPelletsSpawned < 2)
+    {
+        int randRow = (rand() % MAZE_HEIGHT)+2;
+        int randCol = rand() % MAZE_WIDTH;
+
+        if (maze_Char[randRow][randCol] == ' ' || maze_Char[randRow][randCol] == '.')
+        {
+            maze_Char[randRow][randCol] = ',';
+            speedPelletsSpawned++;
+        }
+    }
 }
 void drawMaze(sf::RenderWindow &window)
 {
@@ -250,8 +273,9 @@ void drawMaze(sf::RenderWindow &window)
     sf::Sprite pellets(dot);
     sf::Texture S;
     S.loadFromFile("pacman-art/other/strawberry.png");
-
+    speedPallet.loadFromFile("pacman-art/other/apple.png");
     sf::Sprite strawberry(S);
+    sf::Sprite speedApple(speedPallet);
     pellets.setScale(1.5, 1.5);
     for (int i = 0; i < MAZE_HEIGHT; ++i)
     {
@@ -279,6 +303,11 @@ void drawMaze(sf::RenderWindow &window)
                 pellets.setPosition(j * TILE_SIZE, i * TILE_SIZE);
                 window.draw(pellets);
             }
+            else if (maze_Char[i][j] == ',')
+            { // Pellet
+                speedApple.setPosition(j * TILE_SIZE, i * TILE_SIZE);
+                window.draw(speedApple);
+            }
         }
     }
 }
@@ -286,10 +315,10 @@ void drawMaze(sf::RenderWindow &window)
 void initializeGhosts()
 {
     // Set velocities for each ghost
-    ghosts[0].velocity = 100.0f;
-    ghosts[1].velocity = 100.0f;
-    ghosts[2].velocity = 100.0f;
-    ghosts[3].velocity = 100.0f;
+    ghosts[0].velocity = 150;
+    ghosts[1].velocity = 150;
+    ghosts[2].velocity = 150;
+    ghosts[3].velocity = 150;
 
     for (int i = 0; i < ghosts.size(); ++i)
     {
@@ -298,6 +327,14 @@ void initializeGhosts()
         ghosts[i].sprite.setTexture(ghost_Texture);
         ghosts[i].sprite.setScale(1.2, 1.2);
     }
+    // Adjust initial positions as needed
+    // ghosts[0].xpos -= 10;
+    // ghosts[1].xpos -= 10;
+    // ghosts[2].ypos -= 20;
+    // ghosts[2].xpos -= 10;
+    // ghosts[3].xpos -= 10;
+    // ghosts[3].ypos -= 20;
+    // ghosts[3].xpos += 20;
 
     for (int i = 0; i < ghosts.size(); ++i)
     {
@@ -313,8 +350,8 @@ void *ghostMovement(void *arg)
     bool prevwrap = 0;
 
     Entity *ghost = static_cast<Entity *>(arg);
-    pthread_mutex_t *mutex = &ghostMutexes[ghost - &ghosts[0]];
-    pthread_mutex_init(mutex, NULL);
+    // pthread_mutex_t *mutex = &ghostMutexes[ghost - &ghosts[0]];
+    // pthread_mutex_init(mutex, NULL);
     random_device rd;
     mt19937 gen(rd());
     uniform_int_distribution<> dis(0, 3);
@@ -351,17 +388,28 @@ void *ghostMovement(void *arg)
             }
             else
             {
-                if (ghost->reset)
+                if(ghost->reset)
                 {
-                    exitHome = 0;
-                    ghost->reset = 0;
+                    !exitHome;
+                    !ghost->reset;
                 }
                 returnKey();
                 returnPermit();
+                
                 bool left = false, right = false, up = false, down = false;
                 int newY = ghost->ypos;
                 int newX = ghost->xpos;
-                pthread_mutex_lock(mutex);
+                pthread_mutex_lock(&ghostGlobalMutex);                
+                // if(hasSpeed[0] == false)
+                // {
+                //     hasSpeed[0] = true;
+                //     ghost->velocity = 115;
+                // }
+                // else if(hasSpeed[1] == false && ghost->velocity!=50)
+                // {
+                //     hasSpeed[1] = true;
+                //     ghost->velocity = 115;
+                // }
                 if (maze_Char[newY / TILE_SIZE][(newX - TILE_SIZE) / TILE_SIZE] != 'X')
                 {
                     left = true;
@@ -378,6 +426,7 @@ void *ghostMovement(void *arg)
                 {
                     up = true;
                 }
+                pthread_mutex_unlock(&ghostGlobalMutex);
                 bool exit = true;
                 while (exit)
                 {
@@ -431,13 +480,17 @@ void *ghostMovement(void *arg)
                         }
                     }
                 }
-                pthread_mutex_unlock(mutex);
+                if (maze_Char[ghost->ypos/TILE_SIZE][ghost->xpos/TILE_SIZE] == ',')
+                {
+                    maze_Char[ghost->ypos/TILE_SIZE][ghost->xpos/TILE_SIZE] = ' ';
+                    ghost->velocity = 115;
+                }
                 ghost->sprite.setPosition(ghost->xpos, ghost->ypos);
 
                 // Sleep to control ghost movement speed
             } // Adjust the sleep duration as needed
         }
-        sf::sleep(sf::milliseconds(150));
+        sf::sleep(sf::milliseconds(ghost->velocity));
     }
 }
 
@@ -490,8 +543,22 @@ bool collisionWithGhost(Pacman &pacman, Entity &ghost)
     {
         return true;
     }
+
     return false;
 }
+bool allPelletsEaten() {
+    for (int i = 0; i < MAZE_HEIGHT; ++i) {
+        for (int j = 0; j < MAZE_WIDTH; ++j) {
+            if (maze_Char[i][j] == '.' || maze_Char[i][j] == '+') {
+                // If there is any pellet remaining, return false
+                return false;
+            }
+        }
+    }
+    // If no pellets are found, return true
+    return true;
+}
+
 void *game_Engine(void *args)
 {
     pthread_create(&ui, NULL, &UserInterface, NULL);
@@ -517,8 +584,16 @@ void *game_Engine(void *args)
     scoreText.setCharacterSize(24);            // Set the character size
     scoreText.setFillColor(sf::Color::Yellow); // Set the color
     scoreText.setPosition(20, 10);             // Set the position
+    sf::Font font2;
+    font2.loadFromFile("Arial.ttf");
+    sf::Text scoreT;
+    scoreT.setFont(font2);                   // Set the font
+    scoreT.setCharacterSize(24);            // Set the character size
+    scoreT.setFillColor(sf::Color::Yellow); // Set the color
+    scoreT.setPosition(140, 8);     
     int counter = 0;
-
+    hasSpeed[0] = false;
+    hasSpeed[1] = false;
     int windowWidth = MAZE_WIDTH * TILE_SIZE;
     int windowHeight = MAZE_HEIGHT * TILE_SIZE;
     sf::RenderWindow window(sf::VideoMode(windowWidth, windowHeight), "Pac-Man Maze");
@@ -529,9 +604,9 @@ void *game_Engine(void *args)
     initializeGhosts();
     pthread_t ghostThreads[4];
     // pthread_mutex_init(&permitMutex,NULL);
+    pthread_mutex_init(&ghostGlobalMutex, NULL);
     for (int i = 0; i < 4; ++i)
     {
-        pthread_mutex_init(&ghostMutexes[i], NULL);
         pthread_create(&ghostThreads[i], nullptr, ghostMovement, &ghosts[i]);
     }
     while (window.isOpen())
@@ -549,15 +624,14 @@ void *game_Engine(void *args)
 
         for (int i = 0; i < 4; ++i)
         {
-            if (collisionWithGhost(pacman, ghosts[i]))
-            {
-                if (pPalletGlobalBool == 0)
-                    pacman.resetPacman();
+            if (collisionWithGhost(pacman, ghosts[i]) )
+            {    if(pPalletGlobalBool==0)
+                pacman.resetPacman();
                 else
                 {
-                    ghosts[i].reset = 1;
-                    ghosts[i].xpos = 13 * TILE_SIZE;
-                    ghosts[i].ypos = 17 * TILE_SIZE;
+                    ghosts[i].reset=1;
+                    ghosts[i].xpos=13*TILE_SIZE;
+                    ghosts[i].ypos=(16*TILE_SIZE);
                 } // Reset Pac-Man if collision occurs
             }
         }
@@ -597,7 +671,7 @@ void *game_Engine(void *args)
             score++;
             maze_Char[newY / TILE_SIZE][newX / TILE_SIZE] = ' ';
         }
-        pthread_mutex_unlock(&mutex1);
+
         if (!pPalletGlobalBool)
         {
             plastUpdateTime = clock.getElapsedTime();
@@ -608,13 +682,16 @@ void *game_Engine(void *args)
                 pPalletGlobalBool = true;
                 for (int i = 0; i < 4; i++)
                 {
+                    prevSpeeds[i] = ghosts[i].velocity;
                     ghost_Texture.loadFromFile("pacman-art/ghosts/blue_ghost.png");
                     ghosts[i].sprite.setTexture(ghost_Texture);
                     ghosts[i].sprite.setScale(1.2, 1.2);
+                    ghosts[i].velocity = 400;
                 }
                 palletBool = true;
             }
         }
+        pthread_mutex_unlock(&mutex1);        
         if (pdt >= 5)
         {
             for (int i = 0; i < 4; i++)
@@ -622,11 +699,14 @@ void *game_Engine(void *args)
                 ghost_Texture.loadFromFile("pacman-art/ghosts/blinky.png");
                 ghosts[i].sprite.setTexture(ghost_Texture);
                 ghosts[i].sprite.setScale(1.2, 1.2);
+                ghosts[i].velocity = prevSpeeds[i];
             }
             pPalletGlobalBool = false;
         }
-        string scoreString = "Score: " + to_string(score);
+        string scoreTT = to_string(score);
+        string scoreString = "Score: ";
         scoreText.setString(scoreString);
+        scoreT.setString(scoreTT);
         window.clear();
         drawMaze(window);
         pacman.p.setPosition(pacman.xpos, pacman.ypos);
@@ -642,7 +722,41 @@ void *game_Engine(void *args)
         }
         window.draw(pacman.p);
         window.draw(scoreText);
+        window.draw(scoreT);
         window.display();
+        if(allPelletsEaten() || pacman.lives == 0)
+        {
+            window.close();
+            sf::RenderWindow window2(sf::VideoMode(windowWidth, windowHeight), "GAME OVER");
+            sf::Font font;
+            font.loadFromFile("pacfont-good.ttf"); // Load a font
+            sf::Text PacmanText;
+            PacmanText.setFont(font);                   // Set the font
+            PacmanText.setCharacterSize(40);            // Set the character size
+            PacmanText.setFillColor(sf::Color::Yellow); // Set the color
+            PacmanText.setPosition(130, 200);           // Set the position
+            string pstring = "GAME OVER \n\n   PRESS E \n   TO EXIT";
+            PacmanText.setString(pstring);
+            sf::Event event2;
+            while(window2.isOpen())
+            {
+                window2.draw(PacmanText);
+                window2.display();
+                while (window2.pollEvent(event2))
+                {
+                    if (event2.type == sf::Event::Closed)
+                        window2.close();
+                    if (event2.type == sf::Event::KeyPressed)
+                    {
+                        switch (event2.key.code)
+                        {
+                        case sf::Keyboard::E:
+                            pthread_exit(0);
+                        }
+                    }
+                }
+            }
+        }
     }
     for (int i = 0; i < ghosts.size(); ++i)
     {
