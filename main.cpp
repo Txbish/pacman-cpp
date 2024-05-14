@@ -88,7 +88,7 @@ struct Entity
     sf::Sprite sprite;
     float velocity;
     int direction = 0;
-    bool reset=0;
+    bool reset = 0;
     pthread_mutex_t ghostThread;
 
     void chdirection()
@@ -139,8 +139,6 @@ struct Pacman
         {
             int newX = xpos;
             int newY = ypos;
-            // if ((xpos < 560 && xpos > 0 && ypos < 700 && ypos > 0))
-            //{
 
             if (direction == 0)
                 newX += TILE_SIZE;
@@ -164,11 +162,10 @@ struct Pacman
             {
                 xpos = 0;
             }
-            //}
             moveclock.restart();
         }
     }
-    void animation()
+     void animation()
     {
         if (direction == 4)
         {
@@ -301,14 +298,6 @@ void initializeGhosts()
         ghosts[i].sprite.setTexture(ghost_Texture);
         ghosts[i].sprite.setScale(1.2, 1.2);
     }
-    // Adjust initial positions as needed
-    // ghosts[0].xpos -= 10;
-    // ghosts[1].xpos -= 10;
-    // ghosts[2].ypos -= 20;
-    // ghosts[2].xpos -= 10;
-    // ghosts[3].xpos -= 10;
-    // ghosts[3].ypos -= 20;
-    // ghosts[3].xpos += 20;
 
     for (int i = 0; i < ghosts.size(); ++i)
     {
@@ -362,10 +351,10 @@ void *ghostMovement(void *arg)
             }
             else
             {
-                if(ghost->reset)
+                if (ghost->reset)
                 {
-                    !exitHome;
-                    !ghost->reset;
+                    exitHome = 0;
+                    ghost->reset = 0;
                 }
                 returnKey();
                 returnPermit();
@@ -448,8 +437,7 @@ void *ghostMovement(void *arg)
                 // Sleep to control ghost movement speed
             } // Adjust the sleep duration as needed
         }
-                    sf::sleep(sf::milliseconds(150));
-
+        sf::sleep(sf::milliseconds(150));
     }
 }
 
@@ -502,7 +490,6 @@ bool collisionWithGhost(Pacman &pacman, Entity &ghost)
     {
         return true;
     }
-
     return false;
 }
 void *game_Engine(void *args)
@@ -562,14 +549,15 @@ void *game_Engine(void *args)
 
         for (int i = 0; i < 4; ++i)
         {
-            if (collisionWithGhost(pacman, ghosts[i]) )
-            {    if(pPalletGlobalBool==0)
-                pacman.resetPacman();
+            if (collisionWithGhost(pacman, ghosts[i]))
+            {
+                if (pPalletGlobalBool == 0)
+                    pacman.resetPacman();
                 else
                 {
-                    ghosts[i].reset=1;
-                    ghosts[i].xpos=13*TILE_SIZE;
-                    ghosts[i].ypos=17*TILE_SIZE;
+                    ghosts[i].reset = 1;
+                    ghosts[i].xpos = 13 * TILE_SIZE;
+                    ghosts[i].ypos = 17 * TILE_SIZE;
                 } // Reset Pac-Man if collision occurs
             }
         }
