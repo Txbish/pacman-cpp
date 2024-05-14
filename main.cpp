@@ -10,14 +10,11 @@
 #include <chrono>
 #include <semaphore.h>
 
-// Testing
-// Rafay did this
 
 using namespace std;
 int score = 0;
 pthread_mutex_t mazeMutex;
 pthread_mutex_t mutex1;
-pthread_mutex_t ghostMutexes[4];
 pthread_mutex_t PowerPalletMutex;
 pthread_mutex_t ghostGlobalMutex;
 bool pPalletGlobalBool;
@@ -38,11 +35,8 @@ int direction = 0;
 pthread_t powerPalletThread;
 vector<sf::FloatRect> wallBounds;
 pthread_mutex_t permitMutex;
-pthread_cond_t permitCV = PTHREAD_COND_INITIALIZER; // Initialize permit condition variable
-pthread_cond_t keyCV = PTHREAD_COND_INITIALIZER;
-bool hasSpeed[2];
 sf::Texture speedPallet;
-
+sf::Texture ChTexture;
 
 ////SEMALHORE/////////////////////
 sem_t keySemaphore;
@@ -85,7 +79,7 @@ void returnPermit()
 {
     sem_post(&permitSemaphore); // Increment permit semaphore count
 }
-///////////////////////////////
+/////////////////////////////////////
 struct Entity
 {
     int xpos;
@@ -129,10 +123,6 @@ struct Pacman
         xpos = 160; // Initial x position
         ypos = 140; // Initial y position
         lives--;    // Decrement lives
-        if (lives == 0)
-        {
-            // Game over logic
-        }
     }
 
     void move(float dt)
@@ -250,7 +240,6 @@ Pacman pacman;void loadMaze()
     ++rows;
     file.close();
 
-    // Randomly spawn two speed pellets
     int speedPelletsSpawned = 0;
     srand(time(nullptr)); // Seed the random number generator
 
@@ -266,6 +255,8 @@ Pacman pacman;void loadMaze()
         }
     }
 }
+
+//////////////////////////////////////////// MAZE DRAWING FUNCTION //////////////////
 void drawMaze(sf::RenderWindow &window)
 {
     sf::RectangleShape wall(sf::Vector2f(TILE_SIZE, TILE_SIZE));
@@ -282,8 +273,7 @@ void drawMaze(sf::RenderWindow &window)
         for (int j = 0; j < MAZE_WIDTH; ++j)
         {
             if (maze_Char[i][j] == 'X')
-            { // Wall
-                // Set position and color for glow rectangle
+            { 
                 glow.setPosition(j * TILE_SIZE - 5, i * TILE_SIZE - 5);
                 glow.setFillColor(sf::Color(0, 0, 255, 50)); // Blue color with some transparency
                 window.draw(glow);                           // Draw the glow rectangle first
@@ -327,34 +317,20 @@ void initializeGhosts()
         ghosts[i].sprite.setTexture(ghost_Texture);
         ghosts[i].sprite.setScale(1.2, 1.2);
     }
-    // Adjust initial positions as needed
-    // ghosts[0].xpos -= 10;
-    // ghosts[1].xpos -= 10;
-    // ghosts[2].ypos -= 20;
-    // ghosts[2].xpos -= 10;
-    // ghosts[3].xpos -= 10;
-    // ghosts[3].ypos -= 20;
-    // ghosts[3].xpos += 20;
 
     for (int i = 0; i < ghosts.size(); ++i)
     {
         ghosts[i].sprite.setPosition(ghosts[i].xpos, ghosts[i].ypos);
     }
-    for (int i = 0; i < ghosts.size(); ++i)
-    {
-        pthread_mutex_init(&ghostMutexes[i], NULL);
-    }
 }
+
+/////////////////////////////////////Ghost Movement Thread FunctiON /////////////////
 void *ghostMovement(void *arg)
 {
     bool prevwrap = 0;
 
     Entity *ghost = static_cast<Entity *>(arg);
-    // pthread_mutex_t *mutex = &ghostMutexes[ghost - &ghosts[0]];
-    // pthread_mutex_init(mutex, NULL);
-    random_device rd;
-    mt19937 gen(rd());
-    uniform_int_distribution<> dis(0, 3);
+
     sf::Clock clock;
     sf::Time lastUpdateTime = clock.getElapsedTime();
     bool exithomeAllowed = true;
@@ -362,6 +338,7 @@ void *ghostMovement(void *arg)
     bool hasKey = false;
     bool hasPermit = false;
 
+    ////////////////////SEMAPHORE IMPLEMENTATION FOR 3rd SCENARIO ////////////
     if (!exitHome)
     {
         getKey();
@@ -390,8 +367,11 @@ void *ghostMovement(void *arg)
             {
                 if(ghost->reset)
                 {
-                    !exitHome;
-                    !ghost->reset;
+                    exitHome=0;
+                    ghost->reset=0;
+                    getKey();
+                    getPermit();
+                    continue;
                 }
                 returnKey();
                 returnPermit();
@@ -399,17 +379,7 @@ void *ghostMovement(void *arg)
                 bool left = false, right = false, up = false, down = false;
                 int newY = ghost->ypos;
                 int newX = ghost->xpos;
-                pthread_mutex_lock(&ghostGlobalMutex);                
-                // if(hasSpeed[0] == false)
-                // {
-                //     hasSpeed[0] = true;
-                //     ghost->velocity = 115;
-                // }
-                // else if(hasSpeed[1] == false && ghost->velocity!=50)
-                // {
-                //     hasSpeed[1] = true;
-                //     ghost->velocity = 115;
-                // }
+                pthread_mutex_lock(&ghostGlobalMutex);  ////// Synchronization scenario 1//////////              
                 if (maze_Char[newY / TILE_SIZE][(newX - TILE_SIZE) / TILE_SIZE] != 'X')
                 {
                     left = true;
@@ -480,10 +450,12 @@ void *ghostMovement(void *arg)
                         }
                     }
                 }
-                if (maze_Char[ghost->ypos/TILE_SIZE][ghost->xpos/TILE_SIZE] == ',')
+                if (maze_Char[ghost->ypos/TILE_SIZE][ghost->xpos/TILE_SIZE] == ','&&ghost->velocity!=115)
                 {
                     maze_Char[ghost->ypos/TILE_SIZE][ghost->xpos/TILE_SIZE] = ' ';
                     ghost->velocity = 115;
+                    ChTexture.loadFromFile("pacman-art/ghosts/pinky.png");
+                    ghost->sprite.setTexture(ChTexture);
                 }
                 ghost->sprite.setPosition(ghost->xpos, ghost->ypos);
 
@@ -494,6 +466,8 @@ void *ghostMovement(void *arg)
     }
 }
 
+
+/////////////////////////////////USER INTERFACE THREAD FUNCTION ////////////// 
 void *UserInterface(void *args)
 {
     int windowWidth = MAZE_WIDTH * TILE_SIZE;
@@ -534,6 +508,8 @@ void *UserInterface(void *args)
     pthread_cond_signal(&uiThreadFinishedCond);
     pthread_exit(0);
 }
+////////////////////////////////////////////////////////////////////////////////////
+
 bool collisionWithGhost(Pacman &pacman, Entity &ghost)
 {
     // Calculate the bounding boxes for Pac-Man and the ghost
@@ -546,6 +522,7 @@ bool collisionWithGhost(Pacman &pacman, Entity &ghost)
 
     return false;
 }
+
 bool allPelletsEaten() {
     for (int i = 0; i < MAZE_HEIGHT; ++i) {
         for (int j = 0; j < MAZE_WIDTH; ++j) {
@@ -559,6 +536,8 @@ bool allPelletsEaten() {
     return true;
 }
 
+
+/////////////////////////////////// GAME ENGINE THREAD ///////////////////
 void *game_Engine(void *args)
 {
     pthread_create(&ui, NULL, &UserInterface, NULL);
@@ -592,8 +571,6 @@ void *game_Engine(void *args)
     scoreT.setFillColor(sf::Color::Yellow); // Set the color
     scoreT.setPosition(140, 8);     
     int counter = 0;
-    hasSpeed[0] = false;
-    hasSpeed[1] = false;
     int windowWidth = MAZE_WIDTH * TILE_SIZE;
     int windowHeight = MAZE_HEIGHT * TILE_SIZE;
     sf::RenderWindow window(sf::VideoMode(windowWidth, windowHeight), "Pac-Man Maze");
@@ -603,7 +580,6 @@ void *game_Engine(void *args)
 
     initializeGhosts();
     pthread_t ghostThreads[4];
-    // pthread_mutex_init(&permitMutex,NULL);
     pthread_mutex_init(&ghostGlobalMutex, NULL);
     for (int i = 0; i < 4; ++i)
     {
@@ -665,7 +641,7 @@ void *game_Engine(void *args)
         int newY = pacman.ypos;
         int newX = pacman.xpos;
         pacman.move(dt);
-        pthread_mutex_lock(&mutex1);
+        pthread_mutex_lock(&mutex1);  ////////////////////// SYNCHRONIZATION SCENARIO 2///////
         if (maze_Char[newY / TILE_SIZE][newX / TILE_SIZE] == '.')
         {
             score++;
@@ -699,7 +675,7 @@ void *game_Engine(void *args)
                 ghost_Texture.loadFromFile("pacman-art/ghosts/blinky.png");
                 ghosts[i].sprite.setTexture(ghost_Texture);
                 ghosts[i].sprite.setScale(1.2, 1.2);
-                ghosts[i].velocity = prevSpeeds[i];
+                ghosts[i].velocity = 150;
             }
             pPalletGlobalBool = false;
         }
