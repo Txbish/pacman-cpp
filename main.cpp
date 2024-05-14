@@ -9,8 +9,8 @@
 #include <time.h>
 #include <chrono>
 
-//Testing
-//Rafay did this
+// Testing
+// Rafay did this
 
 using namespace std;
 int score = 0;
@@ -212,6 +212,7 @@ void loadMaze()
 void drawMaze(sf::RenderWindow &window)
 {
     sf::RectangleShape wall(sf::Vector2f(TILE_SIZE, TILE_SIZE));
+    sf::RectangleShape glow(sf::Vector2f(TILE_SIZE + 10, TILE_SIZE + 10)); // Larger rectangle for glow
     sf::Sprite pellets(dot);
     sf::Texture S;
     S.loadFromFile("pacman-art/other/strawberry.png");
@@ -224,6 +225,11 @@ void drawMaze(sf::RenderWindow &window)
         {
             if (maze_Char[i][j] == 'X')
             { // Wall
+                // Set position and color for glow rectangle
+                glow.setPosition(j * TILE_SIZE - 5, i * TILE_SIZE - 5);
+                glow.setFillColor(sf::Color(0, 0, 255, 50)); // Blue color with some transparency
+                window.draw(glow); // Draw the glow rectangle first
+                // Set position and color for original wall rectangle
                 wall.setFillColor(sf::Color::Blue);
                 wall.setPosition(j * TILE_SIZE, (i * TILE_SIZE));
                 wallBounds.push_back((wall.getGlobalBounds()));
@@ -242,6 +248,7 @@ void drawMaze(sf::RenderWindow &window)
         }
     }
 }
+
 void initializeGhosts()
 {
     // Set velocities for each ghost
@@ -328,7 +335,7 @@ void *ghostMovement(void *arg)
             bool left = false, right = false, up = false, down = false;
             int newY = ghost->ypos;
             int newX = ghost->xpos;
-
+ pthread_mutex_lock(mutex);
             if (maze_Char[newY / TILE_SIZE][(newX - TILE_SIZE) / TILE_SIZE] != 'X')
             {
                 left = true;
@@ -345,7 +352,7 @@ void *ghostMovement(void *arg)
             {
                 up = true;
             }
-
+ pthread_mutex_unlock(mutex);
             bool exit = true;
             while (exit)
             {
@@ -358,7 +365,7 @@ void *ghostMovement(void *arg)
                         ghost->direction = 0;
                         break;
                     }
-                    else if (ghost->xpos+TILE_SIZE >= 560)
+                    else if (ghost->xpos + TILE_SIZE > 540 && direction != 3)
                     {
                         ghost->xpos = 0;
                         ghost->direction = 0;
@@ -373,11 +380,12 @@ void *ghostMovement(void *arg)
                         ghost->direction = 3;
                         break;
                     }
-                    else if (ghost->xpos-TILE_SIZE< 0)
-                        {
-                            ghost->xpos = 560 - TILE_SIZE;
-                            ghost->direction = 3;
-                        }
+                    else if (ghost->xpos - TILE_SIZE < 0 && direction != 0)
+                    {
+                        ghost->xpos = 540;
+                        ghost->direction = 3;
+                        break;
+                    }
                 }
                 else if (dir > 19 && dir < 29)
                 {
@@ -421,7 +429,7 @@ void *ghostMovement(void *arg)
              }
 
              // Check collision with walls
-             pthread_mutex_lock(mutex);
+             pthread_mutex_lock(mutex); pthread_mutex_unlock(mutex);
              if (maze_Char[newY / TILE_SIZE][newX / TILE_SIZE] != 'X')
              {
                  ghost->xpos = newX;
