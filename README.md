@@ -65,8 +65,8 @@ A multithreaded Pacman game implementation in C++ using SFML graphics library an
 1. **Clone the repository**:
 
    ```bash
-   git clone <repository-url>
-   cd OS_Pacman
+   git clone https://github.com/Txbish/pacman-cpp.git
+   cd pacman-cpp
    ```
 
 2. **Ensure all assets are in place**:
